@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <string>
+#include <math.h>
 #include <MaxHeap.h>
 
 

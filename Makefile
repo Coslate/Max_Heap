@@ -1,33 +1,63 @@
 #declare variable
+EXE := main
+OBJS := MaxHeap.o HeapSort_main.o
+OBJS_DIR := .objs
+INC_DIR := ./include
+
 CC = g++
-CTAGS_UTIL = /usr/local/bin/
-INCLUDE_FILES = ./include
-INCLUDE_FLAGS = -I $(INCLUDE_FILES)
-CFLAGS = -g -Wall -O3 
-COMPILE_FLAGS = -c
-MAIN_OBJECT_NAME_MAIN = Heap_Sort_main
-MAIN_OBJECT_SOURCE_MAIN = $(MAIN_OBJECT_NAME_MAIN).cpp
-MAIN_OBJECT_EXEC_MAIN = $(MAIN_OBJECT_NAME_MAIN).o
-MAIN_OBJECT_NAME = MaxHeap
-MAIN_OBJECT_SOURCE = $(MAIN_OBJECT_NAME).cpp
-MAIN_OBJECT_EXEC = $(MAIN_OBJECT_NAME).o
-MAIN_OBJECT_EXEC_OUTPUT = ./exec_output/
+INCLUDE_FLAGS = $(foreach d, $(INC_DIR), -I $d)
+#CTAGS_UTIL = /usr/bin/
+CTAGS_UTIL = 
+CTAGS_FILES = ./include
+CTAGS_FLAGS = $(foreach d, $(CTAGS_FILES),-a $d/*)
+GCC_EXCLUSIVE_WARNING_OPTIONS =  # -Wno-unused-but-set-variable
+CLANG_EXCLUSIVE_WARNING_OPTIONS =  # -Wno-unused-parameter -Wno-unused-variable
+ifeq ($(CXX),g++)
+EXCLUSIVE_WARNING_OPTIONS = $(GCC_EXCLUSIVE_WARNING_OPTIONS)
+else
+EXCLUSIVE_WARNING_OPTIONS = $(CLANG_EXCLUSIVE_WARNING_OPTIONS)
+endif
+#WARNINGS_AS_ERRORS = -Werror # Un-commenting this line makes compilation much more strict.
+WARNINGS = -pedantic -Wall $(WARNINGS_AS_ERRORS) -Wfatal-errors -Wextra $(EXCLUSIVE_WARNING_OPTIONS)
+# ASANFLAGS = -fsanitize=address -fno-omit-frame-pointer # for debugging, if supported on the OS
 
-all : clean MaxHeap all_file_tags
-	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) $(MAIN_OBJECT_EXEC_OUTPUT)$(MAIN_OBJECT_EXEC) $(MAIN_OBJECT_SOURCE_MAIN) -o $(MAIN_OBJECT_EXEC_OUTPUT)$(MAIN_OBJECT_EXEC_MAIN)
-	${MAIN_OBJECT_EXEC_OUTPUT}$(MAIN_OBJECT_EXEC_MAIN)
+## Flags for compiling
+CFLAGS = -g -c -std=c++14 -O0 $(WARNINGS) -MMD -MP $(ASANFLAGS)
 
-MaxHeap : $(MAIN_OBJECT_SOURCE) | $(MAIN_OBJECT_EXEC_OUTPUT)
-	$(CC) $(CFLAGS) $(COMPILE_FLAGS) $(MAIN_OBJECT_SOURCE) $(INCLUDE_FLAGS) -o $(MAIN_OBJECT_EXEC_OUTPUT)$(MAIN_OBJECT_EXEC)
+## Flags for linking:
+LDFLAGS += -std=c++14 $(ASANFLAGS)
+
+# Rule for `all` (first/default rule):
+all: $(INC_DIR) $(EXE) all_file_tags
+
+# Rule for linking the final executable:
+# - $(EXE) depends on all object files in $(OBJS)
+# - `patsubst` function adds the directory name $(OBJS_DIR) before every object file
+$(EXE): $(patsubst %.o, $(OBJS_DIR)/%.o, $(OBJS))
+	$(CC) $^ $(LDFLAGS) $(INCLUDE_FLAGS) -o $@
+
+# Rules for compiling source code.
+# - Every object file is required by $(EXE)
+# - Generates the rule requiring the .cpp file of the same name
+$(OBJS_DIR)/%.o: %.cpp | $(OBJS_DIR)
+	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) $< -o $@
+
+$(OBJS_DIR):
+	@mkdir -p $(OBJS_DIR)
+
+$(INC_DIR):
+	@mkdir -p $@
 
 all_file_tags : 
 	$(CTAGS_UTIL)ctags -R ./*
-	$(CTAGS_UTIL)ctags -a $(INCLUDE_FILES)/*
+	$(CTAGS_UTIL)ctags $(CTAGS_FLAGS)
 
-clean :
-	rm -rf $(MAIN_OBJECT_EXEC_OUTPUT)$(MAIN_OBJECT_EXEC)
-	rm -rf $(MAIN_OBJECT_EXEC_OUTPUT)$(MAIN_OBJECT_EXEC_MAIN)
+# Standard C++ Makefile rules:
+clean:
+	rm -rf $(EXE) $(TEST) $(OBJS_DIR) $(CLEAN_RM) *.o *.d *.dSYM
 	rm -rf ./tags
 
-$(MAIN_OBJECT_EXEC_OUTPUT):
-	mkdir -p $(MAIN_OBJECT_EXEC_OUTPUT)
+tidy: clean
+	rm -rf doc
+
+.PHONY: all tidy clean
